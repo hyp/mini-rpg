@@ -1,6 +1,6 @@
 img_guy   = image.load("guy2.png")
 grass= image.load("grassback.png")
-GuyDirX,GuyDirY=0,0
+
 DlgBcgColor=color.new(0,153,51)
 function Main()
 	local oldOrientation=screen.orientation()
@@ -101,80 +101,88 @@ Node = { }
 Node.__index=Node
 
 function Node.new()
-	return setmetatable({ x=0,y=0,x2=16,y2=16,size=16, o={} , },Node) --o(static objects)
+	return setmetatable({ x=0,y=0,x2=32,y2=32,size=32, o={} },Node) --o(static objects)
 end
 
-function Node:add(obj,x,y)
-	local index=math.floor(y/48)*self.size*2+math.floor(x/48)*2
-	--print("node index at "..x..","..y.." is "..index)
-	self.o[index]=obj
-	--print(self.o[index])
+function Node:fill()
+	self.data=string.rep('\000',self.size*self.size*2)
+	print("filling node ",self.data:len())
+end
+
+function Node:setBackground(obj,x,y)
+	local i,j=0,y*self.size*2+x*2+1
+	print("node b",j,"at",x,y)
+	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
+end
+
+function Node:setForeground(obj,x,y)
+	local i,j=0,y*self.size*2+x*2+2
+	print("node f",j,"at",x,y)
+	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
+end
+
+function Node:dump()
+	for c in self.data:gmatch("..........") do
+		print(c:byte(1),c:byte(2),c:byte(3),c:byte(4),c:byte(5),c:byte(6),c:byte(7),c:byte(8))
+	end
 end
 
 function Node:isFree(x,y)
 	local index=math.floor(y/48)*self.size*2+math.floor(x/48)*2
-	--if self.o[index]~=nil then return false end
-	return true
+	return self.data:byte(index+2)==0
 end
 
 function Node:draw()
-	--find out the visible boundaries --to fix
-	local minx,miny=math.floor((viewx-self.x)/48),math.floor((viewy-self.y)/48)
-	local maxx,maxy,x,y=math.min(self.x2,minx+9),math.min(self.y2,miny+6),minx,miny
+	--find out the visible boundaries
+	local i,j       =math.floor(math.max(viewx-self.x,0)/48),math.floor(math.max(viewy-self.y,0)/48)
+	local i2,j2,ii  =math.min(self.x2,i+9),math.min(self.y2,j+6),i
+	local index,back,fore
 	--5 rows
-	while y<maxy do
-		x=minx
+	while j<j2 do
+		index=j*self.size*2+1
+		i=ii
 		--9 columns
-		while x<maxx do
-			local obj=self.o[y*self.size*2+x*2]
-			--print("drawing index "..y*self.size*2+x*2 .." at "..x..","..y)
-			if obj~=nil then
-				--print(" obj not nil")
-				objects[obj].img:safeDraw(x*48+self.x-viewx,y*48+self.y-viewy,objects[obj].x,objects[obj].y,objects[obj].w,objects[obj].h)
+		while i<i2 do
+			back,fore=self.data:byte(index+i*2,index+i*2+1)
+			if back~=0 then
+				back=backgroundTiles[back]
+				back.img:safeDraw(i*48+self.x-viewx,j*48+self.y-viewy,back.x,back.y,back.w,back.h)
 			end
-			x=x+1
+			if fore~=0 then
+				fore=foregroundTiles[fore]
+				fore.img:safeDraw(i*48+self.x-viewx,j*48+self.y-viewy,fore.x,fore.y,fore.w,fore.h)
+			end
+			i=i+1
 		end
-		y=y+1
+		j=j+1
 	end
 end
 
 node=Node.new()
 
-objects={ [0]={ img=image.load("tree.png"),x=0,y=0,w=96,h=96 },[1]={ img=image.load("fence.png"),x=0,y=0,w=48,h=48 },
-[2]={ img=image.load("road.png"),x=0,y=0,w=48,h=48 },[3]={ img=image.load("road.png"),x=48,y=0,w=48,h=48 },
-[4]={ img=image.load("road.png"),x=0,y=48,w=48,h=48 } }
-node:add(0,48,48)
-node:add(0,48,96)
-node:add(0,48,144)
+node:fill()
 
-node:add(1,144,96)
-node:add(1,240,96)
-node:add(0,48,144)
+node:setForeground(1,3,2)
+node:setForeground(1,5,2)
 
-node:add(2,192,96)
-node:add(2,192,48)
-node:add(2,192,144)
 
-node:add(4,192,192)
-node:add(3,288,192)
-node:add(3,144,192)
-node:add(3,240,192)
+node:setBackground(1,4,1)
+node:setBackground(1,4,2)
+node:setBackground(1,4,3)
+node:setBackground(3,4,4)
+collectgarbage() --important after node modifications!
+--node:dump()
 
-for x = 0,15 do
-	node:add(1,x*48,0)
-	node:add(1,x*48,15*48)
-end
+roadImg=image.load("road.png");
+foregroundTiles={ [1]={ img=image.load("fence.png"),x=0,y=0,w=48,h=48 } }
+backgroundTiles={ [1]={img=roadImg,x=0,y=0,w=48,h=48},[2]={img=roadImg,x=48,y=0,w=48,h=48},[3]={img=roadImg,x=0,y=48,w=48,h=48} }
 
 
 
 function Redraw()
-		--screen.fillrect(0,0,ScreenWidth,ScreenHeight,DlgBcgColor)
-		
-
 		grass:safeDraw(0,0,48- viewx % 48,48- viewy % 48,ScreenWidth,ScreenHeight)
-
-			
-		
+	
+		--just debug
 		function grid()
 			local lc=color.new(255,0,0)
 			local x,y=0,0
@@ -185,8 +193,7 @@ function Redraw()
 				screen.drawline(0,y,ScreenWidth,y,lc,1);y=y+48
 			end
 		end 
-		
-		--grid()
+		grid()
 
 		node:draw()
 		
