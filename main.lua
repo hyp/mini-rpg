@@ -1,72 +1,66 @@
-img_guy   = image.load("guy2.png")
-grass= image.load("grassback.png")
+--tileSize
+tileSize=48
 
-DlgBcgColor=color.new(0,153,51)
-function Main()
-	local oldOrientation=screen.orientation()
-	screen.orientation(0)
-	ScreenWidth =screen.width()
-	ScreenHeight=screen.height()
-	
-	
-		
-	Loop()
-	screen.orientation(oldOrientation)
-end
+--ui + hud
+dialogTextColor,dialogBackColor,dialogOutColor=color.new(255,255,255),color.new(32,32,32,200),color.new(0,0,0)
+healthbarColor=color.new(232,0,0)
 
+--current world(level/room)
+--x,y : view offset
+world={ x=0,y=0,background=image.load("gfx/grassback.png"),prev=nil }
 
-guy= { x=192,y=96,frame=1,dir=0,img=img_guy }
+--dbg
+renderTime=0
 
-viewx,viewy=0,0
-
+--characters
 function createCharacter(cx,cy,image)
-	return {x=cx,y=cy,frame=1,dir=0,img=image}
+	return {x=cx,y=cy,frame=1,dir=0,img=image,hp=75}
 end
-
-enemy= createCharacter(192,144,image.load("enemy2.png"))
 
 function drawCharacter(char)
-	char.img:safeDraw(char.x-viewx,char.y-viewy-4,char.frame*48,char.dir*48,48,48)
+	char.img:safeDraw(char.x-world.x,char.y-world.y-4,char.frame*tileSize,char.dir*tileSize,tileSize,tileSize)
 end
 
+hero = createCharacter(tileSize*4,tileSize*2,image.load("guy2.png"))
+enemy= createCharacter(240,92,image.load("enemy2.png"))
+
+
 function moveCharacter(char,x,y)
-	if not node:isFree(char.x+x,char.y+y) then Redraw();popup("Can't go there!");return end
+	if not node:isFree(char.x+x,char.y+y) then Redraw();popup(hero,"Can't go there!");return end
 	--print("move character "..char.x..","..char.y)
 	char.frame=2
 	char.x=char.x+x/3
 	char.y=char.y+y/3
-	viewx=viewx+x/3
-	viewy=viewy+y/3
+	world.x=world.x+x/3
+	world.y=world.y+y/3
 	Redraw()
 	os.sleep(15)
 	char.frame=0
 	char.x=char.x+x/3
 	char.y=char.y+y/3
-	viewx=viewx+x/3
-	viewy=viewy+y/3
+	world.x=world.x+x/3
+	world.y=world.y+y/3
 	Redraw()
 	os.sleep(15)	
 	char.frame=1
 	char.x=char.x+x/3
 	char.y=char.y+y/3
-	viewx=viewx+x/3
-	viewy=viewy+y/3
+	world.x=world.x+x/3
+	world.y=world.y+y/3
 	Redraw()
+
 	--print(" done"..char.x..","..char.y)
 end
 
-function popup(msg)
-	local white=color.new(32,32,32,200)
-	local t=color.new(255,255,255)
-	local b=color.new(0,0,0)
-	screen.fillrect(0,ScreenHeight-48,ScreenWidth,48,white)
-	screen.drawrect(0,ScreenHeight-48,ScreenWidth-1,ScreenHeight-1,b)
+function popup(who,msg)
+
+	screen.fillrect(0,ScreenHeight-48,ScreenWidth,48,dialogBackColor)
+	screen.drawrect(0,ScreenHeight-48,ScreenWidth-1,ScreenHeight-1,dialogOutColor)
 	text.size(18)
-	text.color(t)
+	text.color(dialogTextColor)
 	text.draw(48,ScreenHeight-44,msg)
-	--text.draw(48,ScreenHeight-24,"AAargh!!!")
-	guy.img:safeDraw(8,ScreenHeight-40,57,0,32,32)
-	screen.drawrect(8,ScreenHeight-40,40,ScreenHeight-8,b)
+	who.img:safeDraw(8,ScreenHeight-40,57,0,32,32)
+	screen.drawrect(8,ScreenHeight-40,40,ScreenHeight-8,dialogOutColor)
 	
 	screen.update()
 	
@@ -75,24 +69,7 @@ function popup(msg)
 end
 
 function image:safeDraw(x,y,sx,sy,sw,sh)
-	-- if x<0 or y<0 then
-		-- -- negative coords bug? crop
-		-- local nsx,nsy	=sx,sy
-		-- if x<0 then
-			-- nsx=sx-x
-			-- if sw+x<=0 then return end
-			-- x=0			
-		-- end
-		-- if y<0 then
-			-- nsy=sy-y
-			-- if sh+y<=0 then return end
-			-- y=0			
-		-- end
-		-- self:draw(x-nsx,y-nsy,x,y,sw,sh)
-	-- else
-
-		self:draw(x-sx,y-sy,x,y,sw,sh)
-	--end
+	self:draw(x-sx,y-sy,x,y,sw,sh)
 end
 
 
@@ -101,7 +78,7 @@ Node = { }
 Node.__index=Node
 
 function Node.new()
-	return setmetatable({ x=0,y=0,x2=32,y2=32,size=32, o={} },Node) --o(static objects)
+	return setmetatable({ x=0,y=0,x2=32,y2=32,size=32 },Node)
 end
 
 function Node:fill()
@@ -111,13 +88,13 @@ end
 
 function Node:setBackground(obj,x,y)
 	local i,j=0,y*self.size*2+x*2+1
-	print("node b",j,"at",x,y)
+	--print("node b",j,"at",x,y)
 	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
 end
 
 function Node:setForeground(obj,x,y)
 	local i,j=0,y*self.size*2+x*2+2
-	print("node f",j,"at",x,y)
+	--print("node f",j,"at",x,y)
 	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
 end
 
@@ -128,13 +105,14 @@ function Node:dump()
 end
 
 function Node:isFree(x,y)
-	local index=math.floor(y/48)*self.size*2+math.floor(x/48)*2
-	return self.data:byte(index+2)==0
+	local index=math.floor(y/tileSize)*self.size*2+math.floor(x/tileSize)*2
+	local fore=self.data:byte(index+2)
+	return fore==0 or fore>149
 end
 
 function Node:draw()
 	--find out the visible boundaries
-	local i,j       =math.floor(math.max(viewx-self.x,0)/48),math.floor(math.max(viewy-self.y,0)/48)
+	local i,j       =math.floor(math.max(world.x-self.x,0)/tileSize),math.floor(math.max(world.y-self.y,0)/tileSize)
 	local i2,j2,ii  =math.min(self.x2,i+9),math.min(self.y2,j+6),i
 	local index,back,fore
 	--5 rows
@@ -146,11 +124,15 @@ function Node:draw()
 			back,fore=self.data:byte(index+i*2,index+i*2+1)
 			if back~=0 then
 				back=backgroundTiles[back]
-				back.img:safeDraw(i*48+self.x-viewx,j*48+self.y-viewy,back.x,back.y,back.w,back.h)
+				back.img:safeDraw(i*tileSize+self.x-world.x,j*tileSize+self.y-world.y,back.x,back.y,back.w,back.h)
 			end
 			if fore~=0 then
 				fore=foregroundTiles[fore]
-				fore.img:safeDraw(i*48+self.x-viewx,j*48+self.y-viewy,fore.x,fore.y,fore.w,fore.h)
+				if fore.w~=tileSize then
+					fore.img:safeDraw(i*tileSize+self.x-world.x+(tileSize-fore.w)/2,j*tileSize+self.y-world.y+(tileSize-fore.h)/2,fore.x,fore.y,fore.w,fore.h)
+				else
+					fore.img:safeDraw(i*tileSize+self.x-world.x,j*tileSize+self.y-world.y,fore.x,fore.y,fore.w,fore.h)
+				end
 			end
 			i=i+1
 		end
@@ -162,9 +144,16 @@ node=Node.new()
 
 node:fill()
 
-node:setForeground(1,3,2)
-node:setForeground(1,5,2)
+node:setForeground(1,3,3)
+node:setForeground(1,5,3)
+node:setForeground(150,5,4)
+node:setForeground(2,3,2)
+node:setBackground(4,3,3)
+node:setBackground(5,3,4)
 
+for i=0,31 do
+	node:setForeground(1,i,0)
+end
 
 node:setBackground(1,4,1)
 node:setBackground(1,4,2)
@@ -174,34 +163,51 @@ collectgarbage() --important after node modifications!
 --node:dump()
 
 roadImg=image.load("road.png");
-foregroundTiles={ [1]={ img=image.load("fence.png"),x=0,y=0,w=48,h=48 } }
-backgroundTiles={ [1]={img=roadImg,x=0,y=0,w=48,h=48},[2]={img=roadImg,x=48,y=0,w=48,h=48},[3]={img=roadImg,x=0,y=48,w=48,h=48} }
+grassImg=image.load("grasspack.png");
+foregroundTiles={ [1]={ img=image.load("fence.png"),x=0,y=0,w=tileSize,h=tileSize },[2]={ img=image.load("bush2.png"),x=0,y=0,w=tileSize,h=tileSize },[150]={ img=image.load("apples.png"),x=0,y=0,w=24,h=24 } }
+backgroundTiles={ [1]={img=roadImg,x=0,y=0,w=tileSize,h=tileSize},[2]={img=roadImg,x=tileSize,y=0,w=tileSize,h=tileSize},[3]={img=roadImg,x=0,y=tileSize,w=tileSize,h=tileSize} ,
+[4]={img=grassImg,x=0,y=0,w=tileSize,h=tileSize},[5]={img=grassImg,x=tileSize,y=0,w=tileSize,h=tileSize}}
 
 
 
 function Redraw()
-		grass:safeDraw(0,0,48- viewx % 48,48- viewy % 48,ScreenWidth,ScreenHeight)
+	local clk=os.clock()
+	world.background:safeDraw(0,0,tileSize- world.x % tileSize,tileSize- world.y % tileSize,ScreenWidth,ScreenHeight)
 	
-		--just debug
-		function grid()
-			local lc=color.new(255,0,0)
-			local x,y=0,0
-			while x<ScreenWidth do
-				screen.drawline(x,0,x,ScreenHeight,lc,1);x=x+48
-			end
-			while y<ScreenHeight do
-				screen.drawline(0,y,ScreenWidth,y,lc,1);y=y+48
-			end
-		end 
-		grid()
+	--just debug
+	function grid()
+		local lc=color.new(255,0,0)
+		local x,y=0,0
+		while x<ScreenWidth do
+			screen.drawline(x,0,x,ScreenHeight,lc,1);x=x+tileSize
+		end
+		while y<ScreenHeight do
+			screen.drawline(0,y,ScreenWidth,y,lc,1);y=y+tileSize
+		end
+	end 
+	--grid()
 
-		node:draw()
+	node:draw()
 		
-		drawCharacter(enemy)
-		drawCharacter(guy)
+	drawCharacter(enemy)
+	drawCharacter(hero)
+	
+	function bar(x,y,w,h,v,c)
+		screen.fillrect(x,y,w,h,dialogBackColor)
+		screen.fillrect(x,y,v*w,h,c)
+		screen.drawrect(x,y,x+w-1,y+h-1,dialogOutColor)
+	end
+	
+	bar(4,4,64,10,hero.hp/100,healthbarColor)
+	
+	print(renderTime,gcinfo())
+	text.size(15)
+	text.color(dialogTextColor)
+	--text.draw(0,0,renderTime)
+	--text.draw(0,16,gcinfo())
 
-
-		screen.update()
+	screen.update()
+	renderTime=os.clock()-clk
 end
 	
 
@@ -215,16 +221,16 @@ function Loop()
 			if control.isTouch()==1 then
 				CurX,CurY=touch.pos()
 				if touch.down()==1 then
-					SwipeX=CurX-(guy.x-viewx)
-					SwipeY=CurY-(guy.y-viewy)
+					SwipeX=CurX-(hero.x-world.x)
+					SwipeY=CurY-(hero.y-world.y)
 					if math.abs(SwipeY)>math.abs(SwipeX) then
-						if SwipeY<0 then guy.dir=3;SwipeY=-48 else guy.dir=0;SwipeY=48 end
+						if SwipeY<0 then hero.dir=3;SwipeY=-tileSize else hero.dir=0;SwipeY=tileSize end
 						SwipeX=0
 					else
-						if SwipeX<0 then guy.dir=1;SwipeX=-48 else guy.dir=2;SwipeX=48 end
+						if SwipeX<0 then hero.dir=1;SwipeX=-tileSize else hero.dir=2;SwipeX=tileSize end
 						SwipeY=0
 					end
-					moveCharacter(guy,SwipeX,SwipeY)
+					moveCharacter(hero,SwipeX,SwipeY)
 				end
 			elseif control.isButton()==1 then
 				return
@@ -241,7 +247,7 @@ function Loop()
 			-- if control.isTouch()==1 then
 				-- CurX,CurY=touch.pos()
 				-- if touch.click()==1 then
-					-- --GuyX,GuyY=touch.pos()
+					-- --heroX,heroY=touch.pos()
 					-- Redraw()
 				-- -- elseif touch.move()==1 and CurX<bulletStartX and CurY>bulletStartY then
 					-- -- if bulletLaunching then
@@ -255,14 +261,14 @@ function Loop()
 					-- -- bulletLaunching=false
 				-- -- end
 					-- elseif touch.move()==1 then
-						-- SwipeX=CurX-GuyX
-						-- SwipeY=CurY-GuyY
+						-- SwipeX=CurX-heroX
+						-- SwipeY=CurY-heroY
 						-- magn=math.sqrt(SwipeX*SwipeX+SwipeY*SwipeY)
 						-- SwipeX=SwipeX/magn;SwipeY=SwipeY/magn --normalized dir vector
 						-- print ("s "..SwipeX..","..SwipeY)
-						-- GuyDirY=SwipeY;GuyDirX=SwipeX
-						-- GuyX=GuyX+SwipeX*3
-						-- GuyY=GuyY+SwipeY*3
+						-- heroDirY=SwipeY;heroDirX=SwipeX
+						-- heroX=heroX+SwipeX*3
+						-- heroY=heroY+SwipeY*3
 						-- Redraw()
 				-- end
 			-- --buttons
@@ -281,4 +287,9 @@ function Loop()
 	-- end
 end
 
-Main()
+oldOrientation=screen.orientation()
+screen.orientation(0)
+ScreenWidth =screen.width()
+ScreenHeight=screen.height()	
+Loop()
+screen.orientation(oldOrientation)
