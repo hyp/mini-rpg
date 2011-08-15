@@ -1,16 +1,44 @@
 --tileSize
 tileSize=48
 
+--how many frames we still need to draw
+redrawCount=1
+
+function redraw()
+	if redrawCount==0 then redrawCount=1 end
+end
+
 --ui + hud
 dialogTextColor,dialogBackColor,dialogOutColor=color.new(255,255,255),color.new(32,32,32,200),color.new(0,0,0)
 healthbarColor=color.new(232,0,0)
+
+dialogVisible,dialogWho,dialogWhat,dialogTime,dialogDuration=false,nil,nil,0,0
+
+function popup(who,msg)
+	dialogVisible=true
+	dialogWho=who
+	dialogWhat=msg
+	dialogTime=0
+	dialogDuration=1000
+	redraw()
+end
+
+function dialogDraw()
+	screen.fillrect(0,ScreenHeight-48,ScreenWidth,48,dialogBackColor)
+	screen.drawrect(0,ScreenHeight-48,ScreenWidth-1,ScreenHeight-1,dialogOutColor)
+	text.size(18)
+	text.color(dialogTextColor)
+	text.draw(48,ScreenHeight-44,dialogWhat)
+	dialogWho.img:safeDraw(8,ScreenHeight-40,57,0,32,32)
+	screen.drawrect(8,ScreenHeight-40,40,ScreenHeight-8,dialogOutColor)
+end
 
 --current world(level/room)
 --x,y : view offset
 world={ x=0,y=0,background=image.load("gfx/grassback.png"),prev=nil }
 
 --dbg
-renderTime=0
+globalTime,renderTime=0,0
 
 --characters
 function createCharacter(cx,cy,image)
@@ -24,49 +52,34 @@ end
 hero = createCharacter(tileSize*4,tileSize*2,image.load("guy2.png"))
 enemy= createCharacter(240,92,image.load("enemy2.png"))
 
+popup(hero,"hi")
 
 function moveCharacter(char,x,y)
-	if not node:isFree(char.x+x,char.y+y) then Redraw();popup(hero,"Can't go there!");return end
+	if not node:isFree(char.x+x,char.y+y) then popup(char,"Can't go there!");return end
 	--print("move character "..char.x..","..char.y)
+	redrawCount=3
+	local dx,dy=x/3,y/3
 	char.frame=2
-	char.x=char.x+x/3
-	char.y=char.y+y/3
-	world.x=world.x+x/3
-	world.y=world.y+y/3
-	Redraw()
-	os.sleep(15)
+	char.x=char.x+dx
+	char.y=char.y+dy
+	world.x=world.x+dx
+	world.y=world.y+dy
+	update()
 	char.frame=0
-	char.x=char.x+x/3
-	char.y=char.y+y/3
-	world.x=world.x+x/3
-	world.y=world.y+y/3
-	Redraw()
-	os.sleep(15)	
+	char.x=char.x+dx
+	char.y=char.y+dy
+	world.x=world.x+dx
+	world.y=world.y+dy
+	update()
 	char.frame=1
-	char.x=char.x+x/3
-	char.y=char.y+y/3
-	world.x=world.x+x/3
-	world.y=world.y+y/3
-	Redraw()
-
+	char.x=char.x+dx
+	char.y=char.y+dy
+	world.x=world.x+dx
+	world.y=world.y+dy
+	update()
 	--print(" done"..char.x..","..char.y)
 end
 
-function popup(who,msg)
-
-	screen.fillrect(0,ScreenHeight-48,ScreenWidth,48,dialogBackColor)
-	screen.drawrect(0,ScreenHeight-48,ScreenWidth-1,ScreenHeight-1,dialogOutColor)
-	text.size(18)
-	text.color(dialogTextColor)
-	text.draw(48,ScreenHeight-44,msg)
-	who.img:safeDraw(8,ScreenHeight-40,57,0,32,32)
-	screen.drawrect(8,ScreenHeight-40,40,ScreenHeight-8,dialogOutColor)
-	
-	screen.update()
-	
-	os.sleep(70)
-	Redraw()
-end
 
 function image:safeDraw(x,y,sx,sy,sw,sh)
 	self:draw(x-sx,y-sy,x,y,sw,sh)
@@ -171,7 +184,7 @@ backgroundTiles={ [1]={img=roadImg,x=0,y=0,w=tileSize,h=tileSize},[2]={img=roadI
 
 
 function Redraw()
-	local clk=os.clock()
+	
 	world.background:safeDraw(0,0,tileSize- world.x % tileSize,tileSize- world.y % tileSize,ScreenWidth,ScreenHeight)
 	
 	--just debug
@@ -200,96 +213,79 @@ function Redraw()
 	
 	bar(4,4,64,10,hero.hp/100,healthbarColor)
 	
-	print(renderTime,gcinfo())
+	--print(renderTime,gcinfo())
 	text.size(15)
 	text.color(dialogTextColor)
-	--text.draw(0,0,renderTime)
-	--text.draw(0,16,gcinfo())
+	text.draw(0,16,renderTime..','..globalTime)
+	text.draw(0,32,gcinfo())
+	
+	if dialogVisible then dialogDraw() end
 
 	screen.update()
-	renderTime=os.clock()-clk
+	
 end
 	
+function osms() 
+	return os.ostime() --return os.clock()*1000
+end
 
-
-function Loop()
-	Redraw()
-	local SwipeX,SwipeY,CurX,CurY,moving=false
-	while 1 do
-		--input
-		if control.read()==1 then
-			if control.isTouch()==1 then
-				CurX,CurY=touch.pos()
-				if touch.down()==1 then
-					SwipeX=CurX-(hero.x-world.x)
-					SwipeY=CurY-(hero.y-world.y)
-					if math.abs(SwipeY)>math.abs(SwipeX) then
-						if SwipeY<0 then hero.dir=3;SwipeY=-tileSize else hero.dir=0;SwipeY=tileSize end
-						SwipeX=0
-					else
-						if SwipeX<0 then hero.dir=1;SwipeX=-tileSize else hero.dir=2;SwipeX=tileSize end
-						SwipeY=0
-					end
-					moveCharacter(hero,SwipeX,SwipeY)
-				end
-			elseif control.isButton()==1 then
-				return
-			end
-		else
-			os.sleep(5)
-		end
+--updates the game world
+--if needed, rerenders the game
+--rendered frame must be 120 ms / 30ms for idle update for better timing
+function update()
+	local dt=30
+	if redrawCount>0 then
+		local clk=osms()
+		---------------------------
+		---- world rendering ------
+		Redraw()
+		---------------------------
+		renderTime=osms()-clk
+		--print("renderTime",renderTime)
+		if renderTime<120 then os.wait(120-renderTime-1);dt=120
+		else dt=renderTime end
+		
+		redrawCount=redrawCount-1
+	else
+		os.wait(30)
 	end
-	-- Redraw()
-	-- local SwipeX,SwipeY,CurX,CurY,moving
-	-- moving=0
-	-- while 1 do
-		-- if control.read()==1 then
-			-- if control.isTouch()==1 then
-				-- CurX,CurY=touch.pos()
-				-- if touch.click()==1 then
-					-- --heroX,heroY=touch.pos()
-					-- Redraw()
-				-- -- elseif touch.move()==1 and CurX<bulletStartX and CurY>bulletStartY then
-					-- -- if bulletLaunching then
-						-- -- bulletX,bulletY=CurX,CurY
-						-- -- Redraw()
-					-- -- else
-						-- -- bulletX,bulletY=CurX,CurY
-						-- -- bulletLaunching=true
-					-- -- end
-				-- -- elseif touch.up()==1 then
-					-- -- bulletLaunching=false
-				-- -- end
-					-- elseif touch.move()==1 then
-						-- SwipeX=CurX-heroX
-						-- SwipeY=CurY-heroY
-						-- magn=math.sqrt(SwipeX*SwipeX+SwipeY*SwipeY)
-						-- SwipeX=SwipeX/magn;SwipeY=SwipeY/magn --normalized dir vector
-						-- print ("s "..SwipeX..","..SwipeY)
-						-- heroDirY=SwipeY;heroDirX=SwipeX
-						-- heroX=heroX+SwipeX*3
-						-- heroY=heroY+SwipeY*3
-						-- Redraw()
-				-- end
-			-- --buttons
-			-- elseif control.isButton()==1 then
-				-- if button.click() == 1 then
-					-- --if button.home()==1 then
-						-- --ScrollDown(1)
-					-- --else
-						-- return						
-					-- --end
-				-- end
-			-- end    
-		-- else
-			-- os.sleep(5)
-		-- end
-	-- end
+	
+	--update timers
+	globalTime=globalTime+dt
+	if dialogVisible==true then
+		dialogTime=dialogTime+dt
+		--print(dialogTime)
+		if dialogTime>=dialogDuration then dialogVisible=false;redraw() end
+	end
 end
 
 oldOrientation=screen.orientation()
 screen.orientation(0)
 ScreenWidth =screen.width()
-ScreenHeight=screen.height()	
-Loop()
+ScreenHeight=screen.height()
+--main loop--	
+while true do	
+	--process input
+	if control.read()==1 then
+		if control.isTouch()==1 then
+			CurX,CurY=touch.pos()
+			if touch.down()==1 then
+				SwipeX=CurX-(hero.x-world.x)
+				SwipeY=CurY-(hero.y-world.y)
+				if math.abs(SwipeY)>math.abs(SwipeX) then
+					if SwipeY<0 then hero.dir=3;SwipeY=-tileSize else hero.dir=0;SwipeY=tileSize end
+					SwipeX=0
+				else
+					if SwipeX<0 then hero.dir=1;SwipeX=-tileSize else hero.dir=2;SwipeX=tileSize end
+					SwipeY=0
+				end
+				moveCharacter(hero,SwipeX,SwipeY)
+			end
+		elseif control.isButton()==1 then
+			break
+		end
+	end
+	update()
+end
+-------------
 screen.orientation(oldOrientation)
