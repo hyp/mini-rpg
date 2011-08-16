@@ -50,7 +50,7 @@ function drawCharacter(char)
 end
 
 hero = createCharacter(tileSize*4,tileSize*2,image.load("guy2.png"))
-enemy= createCharacter(240,92,image.load("enemy2.png"))
+enemy= createCharacter(240,96,image.load("gfx/npc2.png"))
 
 popup(hero,"hi")
 
@@ -99,16 +99,10 @@ function Node:fill()
 	print("filling node ",self.data:len())
 end
 
-function Node:setBackground(obj,x,y)
-	local i,j=0,y*self.size*2+x*2+1
-	--print("node b",j,"at",x,y)
-	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
-end
-
-function Node:setForeground(obj,x,y)
-	local i,j=0,y*self.size*2+x*2+2
-	--print("node f",j,"at",x,y)
-	self.data=self.data:gsub(".", function(c) i=i+1; if i==j then return string.char(obj) end end)
+function Node:set(obj,x,y)
+	local i,j,l,h=0,y*self.size*2+x*2+2,obj%256,obj/256
+	--print("node set",j,"at",x,y,l,h)
+	self.data=self.data:gsub("..", function(c) i=i+2; if i==j then return string.char(l,h) end end)
 end
 
 function Node:dump()
@@ -119,35 +113,25 @@ end
 
 function Node:isFree(x,y)
 	local index=math.floor(y/tileSize)*self.size*2+math.floor(x/tileSize)*2
-	local fore=self.data:byte(index+2)
-	return fore==0 or fore>149
+	l,h=self.data:byte(index+1,index+2)
+	return tf[h*256+l]	
 end
 
 function Node:draw()
 	--find out the visible boundaries
 	local i,j       =math.floor(math.max(world.x-self.x,0)/tileSize),math.floor(math.max(world.y-self.y,0)/tileSize)
 	local i2,j2,ii  =math.min(self.x2,i+9),math.min(self.y2,j+6),i
-	local index,back,fore
+	local dx,dy = self.x-world.x,self.y-world.y
+	local index,l,h
 	--5 rows
 	while j<j2 do
-		index=j*self.size*2+1
 		i=ii
+		index=j*self.size*2+i*2+1
 		--9 columns
 		while i<i2 do
-			back,fore=self.data:byte(index+i*2,index+i*2+1)
-			if back~=0 then
-				back=backgroundTiles[back]
-				back.img:safeDraw(i*tileSize+self.x-world.x,j*tileSize+self.y-world.y,back.x,back.y,back.w,back.h)
-			end
-			if fore~=0 then
-				fore=foregroundTiles[fore]
-				if fore.w~=tileSize then
-					fore.img:safeDraw(i*tileSize+self.x-world.x+(tileSize-fore.w)/2,j*tileSize+self.y-world.y+(tileSize-fore.h)/2,fore.x,fore.y,fore.w,fore.h)
-				else
-					fore.img:safeDraw(i*tileSize+self.x-world.x,j*tileSize+self.y-world.y,fore.x,fore.y,fore.w,fore.h)
-				end
-			end
-			i=i+1
+			l,h=self.data:byte(index,index+1)
+			td[h*256+l](i*tileSize+dx,j*tileSize+dy)
+			i=i+1;index=index+2
 		end
 		j=j+1
 	end
@@ -157,30 +141,49 @@ node=Node.new()
 
 node:fill()
 
-node:setForeground(1,3,3)
-node:setForeground(1,5,3)
-node:setForeground(150,5,4)
-node:setForeground(2,3,2)
-node:setBackground(4,3,3)
-node:setBackground(5,3,4)
+node:set(6,2,3)
+node:set(2,3,3)
+node:set(3,5,3)
+node:set(1,6,3)
+node:set(2,5,4)
+node:set(3,6,4)
+node:set(4,2,1)
+node:set(4,2,2)
+
+
+for i=2,5 do
+	node:set(1,i,0)
+end
+node:set(5,2,0)
+node:set(7,6,0)
+node:set(8,6,1)
+node:set(8,6,2)
+node:set(9,6,3)
 
 for i=0,31 do
-	node:setForeground(1,i,0)
+node:set(10,6,i)
+node:set(11,7,i)
+
 end
 
-node:setBackground(1,4,1)
-node:setBackground(1,4,2)
-node:setBackground(1,4,3)
-node:setBackground(3,4,4)
+--node:set(8,6,2)
+--node:set(7,6,2)
 collectgarbage() --important after node modifications!
---node:dump()
 
-roadImg=image.load("road.png");
+fenceImg=image.load("fence.png");
+
+roadImg=image.load("gfx/apple.png");
 grassImg=image.load("grasspack.png");
-foregroundTiles={ [1]={ img=image.load("fence.png"),x=0,y=0,w=tileSize,h=tileSize },[2]={ img=image.load("bush2.png"),x=0,y=0,w=tileSize,h=tileSize },[150]={ img=image.load("apples.png"),x=0,y=0,w=24,h=24 } }
-backgroundTiles={ [1]={img=roadImg,x=0,y=0,w=tileSize,h=tileSize},[2]={img=roadImg,x=tileSize,y=0,w=tileSize,h=tileSize},[3]={img=roadImg,x=0,y=tileSize,w=tileSize,h=tileSize} ,
-[4]={img=grassImg,x=0,y=0,w=tileSize,h=tileSize},[5]={img=grassImg,x=tileSize,y=0,w=tileSize,h=tileSize}}
+treeImg=image.load("gfx/water.png");
+grassImg=image.load("gfx/tileset.png");
 
+--tiles tables
+td={ [0]=function(x,y)  end,[1]=function(x,y) fenceImg:safeDraw(x,y,0,0,48,48) end,[2]=function(x,y) fenceImg:safeDraw(x,y,0,48,48,48)  end ,
+[3]=function(x,y) fenceImg:safeDraw(x,y,0,96,48,48)  end,[4]=function(x,y) fenceImg:safeDraw(x,y,48,48,48,48) end,[5]=function(x,y) fenceImg:safeDraw(x,y,48,0,48,48) end,
+[6]=function(x,y) fenceImg:safeDraw(x,y,48,96,48,48) end,[7]=function(x,y) fenceImg:safeDraw(x,y,96,0,48,48) end,[8]=function(x,y) fenceImg:safeDraw(x,y,96,48,48,48) end,
+[9]=function(x,y) fenceImg:safeDraw(x,y,96,96,48,48) end,[10]=function(x,y) treeImg:safeDraw(x,y,0,48,48,48) end,[11]=function(x,y) treeImg:safeDraw(x,y,96,48,48,48) end
+}
+tf={ [0]=true,[1]=false,[2]=true ,[4]=true}
 
 
 function Redraw()
@@ -211,7 +214,7 @@ function Redraw()
 		screen.drawrect(x,y,x+w-1,y+h-1,dialogOutColor)
 	end
 	
-	bar(4,4,64,10,hero.hp/100,healthbarColor)
+	bar(4,4,90,10,hero.hp/100,healthbarColor)
 	
 	--print(renderTime,gcinfo())
 	text.size(15)
@@ -230,7 +233,7 @@ function osms()
 end
 
 --updates the game world
---if needed, rerenders the game
+--if needed, re-renders the game
 --rendered frame must be 120 ms / 30ms for idle update for better timing
 function update()
 	local dt=30
