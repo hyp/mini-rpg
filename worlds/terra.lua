@@ -1,0 +1,1 @@
+return { background="grass.png",dataFile="terra.dat",w=128,h=128,static={} }
